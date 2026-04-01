@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Box, SimpleGrid, Text, Separator } from '@chakra-ui/react'
+import { Box, SimpleGrid, Text, Separator, NativeSelect } from '@chakra-ui/react'
 import Watch from './Watch'
 
 const US_TIMEZONES = [
@@ -36,18 +36,61 @@ function getOffsetLabel(localTz: string, targetTz: string): string | undefined {
 }
 
 export default function TimezoneGrid() {
-  const [localTz, setLocalTz] = useState<string | null>(null)
+  const [browserTz, setBrowserTz] = useState<string | null>(null)
+  const [selectedTz, setSelectedTz] = useState<string | null>(null)
 
   useEffect(() => {
-    setLocalTz(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+    setBrowserTz(detected)
+    setSelectedTz(detected)
   }, [])
 
+  const localTz = selectedTz
   const isLocalUS = localTz ? US_TIMEZONES.some((z) => z.timezone === localTz) : false
   const localCity = localTz?.split('/').pop()?.replace(/_/g, ' ') ?? ''
 
+  // Build dropdown options: browser-detected tz first (if not already in US list), then all US zones
+  const browserTzOption =
+    browserTz && !US_TIMEZONES.some((z) => z.timezone === browserTz)
+      ? [{ timezone: browserTz, label: `My Timezone · ${browserTz.split('/').pop()?.replace(/_/g, ' ')}` }]
+      : []
+
+  const allOptions = [
+    ...browserTzOption,
+    ...US_TIMEZONES.map((z) => ({ timezone: z.timezone, label: `${z.label} (${z.abbreviation})` })),
+  ]
+
   return (
     <>
-      {/* Local watch — only shown when detected TZ is outside the US list */}
+      {/* Timezone selector */}
+      <Box display="flex" justifyContent="center" mb={10}>
+        <Box w={{ base: 'full', sm: '320px' }}>
+          <Text fontSize="xs" color="whiteAlpha.500" mb={2} textAlign="center" letterSpacing="wider" textTransform="uppercase">
+            Compare from
+          </Text>
+          <NativeSelect.Root size="md">
+            <NativeSelect.Field
+              value={localTz ?? ''}
+              onChange={(e) => setSelectedTz(e.target.value)}
+              bg="gray.900"
+              borderColor="whiteAlpha.200"
+              color="white"
+              _hover={{ borderColor: 'whiteAlpha.400' }}
+              borderRadius="xl"
+              px={4}
+            >
+              {allOptions.map((opt) => (
+                <option key={opt.timezone} value={opt.timezone} style={{ background: '#1a1a2e' }}>
+                  {opt.label}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator color="whiteAlpha.500" />
+          </NativeSelect.Root>
+        </Box>
+      </Box>
+
+      {/* Local watch — only shown when selected TZ is outside the US list */}
       {localTz && !isLocalUS && (
         <>
           <Box display="flex" flexDir="column" alignItems="center" mb={12}>
@@ -59,7 +102,7 @@ export default function TimezoneGrid() {
               letterSpacing="widest"
               fontWeight="semibold"
             >
-              Your Timezone
+              Reference Timezone
             </Text>
             <Watch
               timezone={localTz}
@@ -104,7 +147,7 @@ export default function TimezoneGrid() {
 
       {localTz && (
         <Text textAlign="center" color="whiteAlpha.200" fontSize="xs" mt={12}>
-          Detected timezone: {localTz}
+          Comparing from: {localTz}
         </Text>
       )}
     </>
